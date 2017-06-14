@@ -1,6 +1,7 @@
 package jsoniter
 
 import (
+	"errors"
 	"io"
 	"reflect"
 	"sync/atomic"
@@ -11,13 +12,15 @@ type Config struct {
 	IndentionStep                 int
 	MarshalFloatWith6Digits       bool
 	SupportUnexportedStructFields bool
+	Tag                           string
 }
 
 type frozenConfig struct {
-	indentionStep                 int
-	decoderCache                  unsafe.Pointer
-	encoderCache                  unsafe.Pointer
-	extensions                    []ExtensionFunc
+	indentionStep int
+	decoderCache  unsafe.Pointer
+	encoderCache  unsafe.Pointer
+	extensions    []ExtensionFunc
+	tag           string
 }
 
 var DEFAULT_CONFIG = Config{}.Froze()
@@ -33,6 +36,11 @@ func (cfg Config) Froze() *frozenConfig {
 	}
 	if cfg.SupportUnexportedStructFields {
 		frozenConfig.supportUnexportedStructFields()
+	}
+	if cfg.Tag != "" {
+		frozenConfig.tag = cfg.Tag
+	} else {
+		frozenConfig.tag = "json"
 	}
 	return frozenConfig
 }
@@ -131,6 +139,27 @@ func (cfg *frozenConfig) Marshal(v interface{}) ([]byte, error) {
 		return nil, stream.Error
 	}
 	return stream.Buffer(), nil
+}
+
+func (cfg *frozenConfig) Unmarshal(data []byte, v interface{}) error {
+	data = data[:lastNotSpacePos(data)]
+	iter := ParseBytes(cfg, data)
+	typ := reflect.TypeOf(v)
+	if typ.Kind() != reflect.Ptr {
+		// return non-pointer error
+		return errors.New("the second param must be ptr type")
+	}
+	iter.ReadVal(v)
+	if iter.head == iter.tail {
+		iter.loadMore()
+	}
+	if iter.Error == io.EOF {
+		return nil
+	}
+	if iter.Error == nil {
+		iter.reportError("Unmarshal", "there are bytes left after unmarshal")
+	}
+	return iter.Error
 }
 
 func (cfg *frozenConfig) UnmarshalFromString(str string, v interface{}) error {

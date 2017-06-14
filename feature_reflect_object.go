@@ -33,7 +33,7 @@ func encoderOfStruct(cfg *frozenConfig, typ reflect.Type) (Encoder, error) {
 				fieldEncoders[fieldEncoderKey] = &funcEncoder{fun}
 			}
 		}
-		tagParts := strings.Split(field.Tag.Get("json"), ",")
+		tagParts := strings.Split(field.Tag.Get(cfg.tag), ",")
 		// if fieldNames set by extension, use theirs, otherwise try tags
 		fieldNames := calcFieldNames(field.Name, tagParts[0], extensionProvidedFieldNames)
 		omitempty := false
@@ -105,7 +105,7 @@ func decoderOfStruct(cfg *frozenConfig, typ reflect.Type) (Decoder, error) {
 			}
 		}
 		decoder := fieldDecoders[fieldDecoderKey]
-		tagParts := strings.Split(field.Tag.Get("json"), ",")
+		tagParts := strings.Split(field.Tag.Get(cfg.tag), ",")
 		fieldNames := calcFieldNames(field.Name, tagParts[0], extensionProviedFieldNames)
 		if decoder == nil && len(fieldNames) > 0 {
 			var err error
